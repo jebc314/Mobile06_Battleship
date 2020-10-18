@@ -21,12 +21,10 @@ public class Grid {
         this.grid = grid;
         this.pieceNames = pieceNames;
         this.pieceSizes = pieceSizes;
-        this.numPieces = 2;
+        this.numPieces = pieceNames.length;
         // Pieces lives starts off same as pieceSize
         pieceLives = new int[this.pieceSizes.length];
-        for (int i = 0; i < this.pieceSizes.length; i++){
-            pieceLives[i] = pieceSizes[i];
-        }
+        System.arraycopy(pieceSizes, 0, pieceLives, 0, this.pieceSizes.length);
         gridHM = new int[grid.length][grid[0].length];
     }
     //Four argument for all necessary arguments
@@ -37,9 +35,7 @@ public class Grid {
         this.numPieces = size;
         // Pieces lives starts off same as pieceSize
         pieceLives = new int[this.pieceSizes.length];
-        for (int i = 0; i < this.pieceSizes.length; i++){
-            pieceLives[i] = pieceSizes[i];
-        }
+        System.arraycopy(pieceSizes, 0, pieceLives, 0, this.pieceSizes.length);
         gridHM = new int[grid.length][grid[0].length];
     }
 
@@ -86,19 +82,81 @@ public class Grid {
     // haved attacked from before (meet precondition)
     public String attackEnemy(Grid enemy, int r, int c) {
         // The response from attacking the enemy
-        String response = enemy.enemysAttack(r, c);
-        return response;
+        return enemy.enemysAttack(r, c);
     }
 
     // generates a random grid
     public void generateGrid(){
-        for(int i = 0; i < pieceNames.length; i++) {
-
+        for (int pieceName : pieceNames) {
+            boolean placed;
+            do {
+                int r = (int) (Math.random() * grid.length);
+                int c = (int) (Math.random() * grid.length);
+                placed = placePiece(pieceName, r, c);
+            } while (!placed);
         }
     }
     // Places a piece, if able to put down, then returns true
     // If not able to put down, then returns false
-    public boolean placePiece(int pieceName, int r, int c) {
+    public boolean placePiece(int pieceName, int row, int col) {
+        int alignment = (int)(Math.random() * 2);
+        boolean isHorizontal;
+        isHorizontal = alignment == 1;
+
+        // Grid Size for easy use
+        int gridSize = grid.length;
+
+        // If the piece is to be placed horizontally
+        if (isHorizontal) {
+            // Number of tiles (of the current piece)
+            // left and right of the one you tapped
+            // Size 2 --> -0
+            // Size 3 --> 0-0
+            // Size 4 --> 0-00 etc...
+            int leftSize = (pieceSizes[pieceName - 1] - 1) / 2;
+            int rightSize = pieceSizes[pieceName - 1] - leftSize - 1;
+
+            // Check if the tile's position means you can place the piece
+            if (col >= leftSize && col + rightSize < gridSize) {
+                // Check if the tiles around the one you clicked are empty
+                boolean isEmpty = true;
+                for (int i = col - leftSize; i <= col + rightSize; i++) {
+                    if (grid[row][i] != 0 && grid[row][i] != pieceNames[pieceName - 1]) {
+                        isEmpty = false;
+                        break;
+                    }
+                }
+                // If it's empty ==> you can place the piece
+                if (isEmpty) {
+                    // Put piece where you selected
+                    for (int i = col - leftSize; i <= col + rightSize; i++) {
+                        grid[row][i] = pieceNames[pieceName - 1];
+                    }
+                    return true;
+                }
+            }
+            // Same thing for vertical just little tweaks
+        } else {
+            int upSize = (pieceSizes[pieceName - 1] - 1) / 2;
+            int bottomSize = pieceSizes[pieceName - 1] - upSize - 1;
+
+            if (row >= upSize && row + bottomSize < gridSize) {
+                boolean isEmpty = true;
+                for (int i = row - upSize; i <= row + bottomSize; i++) {
+                    if (grid[i][col] != 0 && grid[i][col] != pieceNames[pieceName - 1]) {
+                        isEmpty = false;
+                        break;
+                    }
+                }
+                if (isEmpty) {
+                    for (int i = row - upSize; i <= row + bottomSize; i++) {
+                        grid[i][col] = pieceNames[pieceName - 1];
+                    }
+                    return true;
+                }
+            }
+        }
+
         return false;
     }
 }
