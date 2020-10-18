@@ -6,8 +6,11 @@ import android.content.SharedPreferences;
 import android.content.res.Resources;
 import android.graphics.Color;
 import android.os.Bundle;
+import android.util.TypedValue;
 import android.view.View;
 import android.widget.Button;
+import android.widget.TableLayout;
+import android.widget.TableRow;
 import android.widget.TextView;
 
 import androidx.appcompat.app.AppCompatActivity;
@@ -16,12 +19,14 @@ import androidx.fragment.app.FragmentManager;
 
 import com.google.gson.Gson;
 
+import java.util.HashMap;
+
 public class MainActivity extends AppCompatActivity {
 
     // The grid's textviews
     private TextView[][] grid;
     // The number array version of what is on screen
-    private int[][] numGrid = new int[5][5];
+    private int[][] numGrid;
     // The label saying what the current piece is
     private TextView currentPieceLabel;
     // Pieces names like 1,2,..
@@ -54,6 +59,14 @@ public class MainActivity extends AppCompatActivity {
 
     // Size of grid
     private int gridSize;
+
+    // Table Layout
+    private TableLayout tableLayout;
+    // Table Rows
+    private TableRow[] tableRows;
+
+    // Map of textviews to position
+    private HashMap<View, Integer> textViewPositions;
 
     @Override
     protected void onRestart() {
@@ -105,6 +118,165 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onStart() {
         super.onStart();
+
+        // Grid size from preferences
+        gridSize = sharedPreferences.getInt("grid_size", 5);
+        grid = new TextView[gridSize][gridSize];
+        numGrid = new int[gridSize][gridSize];
+
+        // Get table layout
+        tableLayout = findViewById(R.id.board_layout);
+        // Reset table layout
+        tableLayout.removeAllViews();
+
+        // Getting the table rows
+        tableRows = new TableRow[gridSize];
+        TableLayout.LayoutParams taLayout = new TableLayout.LayoutParams(TableLayout.LayoutParams.MATCH_PARENT, TableLayout.LayoutParams.WRAP_CONTENT);
+        for (int i = 0; i < gridSize; i++)
+        {
+            TableRow tr = new TableRow(this);
+            tr.setLayoutParams(taLayout);
+            tableLayout.addView(tr);
+            tableRows[i] = tr;
+        }
+
+        // get background
+        constraintLayout = findViewById(R.id.main_contraintlayout);
+
+        // Calculate "table width" in pixels
+        float tableWidth = 375 * this.getResources().getDisplayMetrics().density;
+        //Log.d("JEB", ""+ tableWidth);
+        // Margins in pixels
+        float textviewMargin = this.getResources().getDisplayMetrics().density;
+
+        // Table Row Layout params
+        int textviewWidth = (int)(tableWidth / gridSize - 2 * textviewMargin);
+        TableRow.LayoutParams tr = new TableRow.LayoutParams(textviewWidth, textviewWidth);
+        tr.setMargins((int)textviewMargin,(int)textviewMargin,(int)textviewMargin,(int)textviewMargin);
+
+        // Make the map
+        textViewPositions  = new HashMap<>();
+
+        // getting grid pieces
+        for (int row = 0; row < gridSize; row++) {
+            for (int column = 0; column < gridSize; column++) {
+                /*
+                // Get's ID of textviews and puts reference in grid textview array
+                String id = "textView"+ (row * gridSize + column);
+                int resID = getResources().getIdentifier(id, "id", getPackageName());
+                grid[row][column] = findViewById(resID);
+                 */
+                // Make textview
+                TextView tv = new TextView(this);
+                tv.setLayoutParams(tr);
+                tv.setBackgroundColor(Color.WHITE);
+                int textSize = 250 / gridSize;
+                tv.setTextSize(TypedValue.COMPLEX_UNIT_SP, textSize);
+
+                // Add textview to table row and grid
+                tableRows[row].addView(tv);
+                grid[row][column] = tv;
+                textViewPositions.put(tv, row * gridSize + column);
+
+                // Add On Click Listener to the textViews
+                grid[row][column].setOnClickListener(new View.OnClickListener() {
+                    @Override
+                    public void onClick(View v) {
+                        // If the piece is to be placed horizontally
+                        if (isHorizontal) {
+                            // Number of tiles (of the current piece)
+                            // left and right of the one you tapped
+                            // Size 2 --> -0
+                            // Size 3 --> 0-0
+                            // Size 4 --> 0-00 etc...
+                            int leftSize = (pieceSizes[piecePos] - 1) / 2;
+                            int rightSize = pieceSizes[piecePos] - leftSize - 1;
+
+                            // Get the position of the tile
+                            Resources res = v.getResources();
+                            int pos = textViewPositions.get(v);
+                            int row = pos / gridSize;
+                            int col = pos % gridSize;
+
+                            // Check if the tile's position means you can place the piece
+                            if (col >= leftSize && col + rightSize < gridSize) {
+                                // Check if the tiles around the one you clicked are empty
+                                boolean isEmpty = true;
+                                for (int i = col - leftSize; i <= col + rightSize; i++) {
+                                    if (numGrid[row][i] != 0) {
+                                        isEmpty = false;
+                                        break;
+                                    }
+                                }
+                                // If it's empty ==> you can place the piece
+                                if (isEmpty) {
+                                    // See if you need to remove the previous piece position
+                                    for (int i = 0; i < gridSize; i++) {
+                                        for (int j = 0; j < gridSize; j++) {
+                                            if (numGrid[i][j] == pieceNames[piecePos]) {
+                                                numGrid[i][j] = 0;
+                                                grid[i][j].setText("");
+                                            }
+                                        }
+                                    }
+                                    // Put piece where you tapped
+                                    for (int i = col - leftSize; i <= col + rightSize; i++) {
+                                        numGrid[row][i] = pieceNames[piecePos];
+                                        grid[row][i].setText("" + pieceNames[piecePos]);
+                                    }
+                                    // Move to next piece and display next piece's information
+                                    piecePos++;
+                                    // If all pieces have been placced...
+                                    if (piecePos >= pieceNames.length)
+                                        startButton.setEnabled(true);
+                                    piecePos %= pieceNames.length;
+                                    currentPieceLabel.setText(pieceNames[piecePos] + " Size: " + pieceSizes[piecePos]);
+                                }
+                            }
+                            // Same thing for vertical just little tweaks
+                        } else {
+                            int upSize = (pieceSizes[piecePos] - 1) / 2;
+                            int bottomSize = pieceSizes[piecePos] - upSize - 1;
+
+                            Resources res = v.getResources();
+                            int pos = textViewPositions.get(v);
+                            int row = pos / gridSize;
+                            int col = pos % gridSize;
+                            if (row >= upSize && row + bottomSize < gridSize) {
+                                boolean isEmpty = true;
+                                for (int i = row - upSize; i <= row + bottomSize; i++) {
+                                    if (numGrid[i][col] != 0) {
+                                        isEmpty = false;
+                                        break;
+                                    }
+                                }
+                                if (isEmpty) {
+                                    for (int i = 0; i < gridSize; i++) {
+                                        for (int j = 0; j < gridSize; j++) {
+                                            if (numGrid[i][j] == pieceNames[piecePos]) {
+                                                numGrid[i][j] = 0;
+                                                grid[i][j].setText("");
+                                            }
+                                        }
+                                    }
+                                    for (int i = row - upSize; i <= row + bottomSize; i++) {
+                                        numGrid[i][col] = pieceNames[piecePos];
+                                        grid[i][col].setText("" + pieceNames[piecePos]);
+                                    }
+                                    piecePos++;
+                                    // If all pieces have been placced...
+                                    if (piecePos >= pieceNames.length)
+                                        startButton.setEnabled(true);
+                                    piecePos %= pieceNames.length;
+                                    currentPieceLabel.setText(pieceNames[piecePos] + " Size: " + pieceSizes[piecePos]);
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+        }
+
         // Set the background color
         String backgroundColor = sharedPreferences.getString("background_color", "blue");
         // View root = settingsButton.getRootView();
@@ -173,131 +345,24 @@ public class MainActivity extends AppCompatActivity {
         // get sharedpreferences
         sharedPreferences = getSharedPreferences("Settings", Context.MODE_PRIVATE);
 
-        // Grid size from preferences
-        gridSize = 5;//sharedPreferences.getInt("grid_size", 5);
-        grid = new TextView[gridSize][gridSize];
+        // Setting up horizontal and vertical buttons
+        // to change the isHorizontal condition
+        horizontalButton = findViewById(R.id.horizontal_button);
+        horizontalButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                isHorizontal = true;
+            }
+        });
+        verticalButton = findViewById(R.id.vertical_button);
+        verticalButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                isHorizontal = false;
+            }
+        });
 
-        // getting grid pieces
-        for (int row = 0; row < gridSize; row++) {
-            for (int column = 0; column < gridSize; column++) {
-                // Get's ID of textviews and puts reference in grid textview array
-                String id = "textView"+ (row * gridSize + column);
-                int resID = getResources().getIdentifier(id, "id", getPackageName());
-                grid[row][column] = findViewById(resID);
-
-                // Add On Click Listener to the textViews
-                grid[row][column].setOnClickListener(new View.OnClickListener() {
-                    @Override
-                    public void onClick(View v) {
-                        // If the piece is to be placed horizontally
-                        if (isHorizontal) {
-                            // Number of tiles (of the current piece)
-                            // left and right of the one you tapped
-                            // Size 2 --> -0
-                            // Size 3 --> 0-0
-                            // Size 4 --> 0-00 etc...
-                            int leftSize = (pieceSizes[piecePos] - 1) / 2;
-                            int rightSize = pieceSizes[piecePos] - leftSize - 1;
-
-                            // Get the position of the tile
-                            Resources res = v.getResources();
-                            int pos = Integer.parseInt(res.getResourceEntryName(v.getId()).substring(8));
-                            int row = pos / gridSize;
-                            int col = pos % gridSize;
-
-                            // Check if the tile's position means you can place the piece
-                            if (col >= leftSize && col + rightSize < gridSize) {
-                                // Check if the tiles around the one you clicked are empty
-                                boolean isEmpty = true;
-                                for (int i = col - leftSize; i <= col + rightSize; i++) {
-                                    if (numGrid[row][i] != 0) {
-                                        isEmpty = false;
-                                    }
-                                }
-                                // If it's empty ==> you can place the piece
-                                if (isEmpty) {
-                                    // See if you need to remove the previous piece position
-                                    for (int i = 0; i < gridSize; i++) {
-                                        for (int j = 0; j < gridSize; j++) {
-                                            if (numGrid[i][j] == pieceNames[piecePos]) {
-                                                numGrid[i][j] = 0;
-                                                grid[i][j].setText("");
-                                            }
-                                        }
-                                    }
-                                    // Put piece where you tapped
-                                    for (int i = col - leftSize; i <= col + rightSize; i++) {
-                                        numGrid[row][i] = pieceNames[piecePos];
-                                        grid[row][i].setText("" + pieceNames[piecePos]);
-                                    }
-                                    // Move to next piece and display next piece's information
-                                    piecePos++;
-                                    // If all pieces have been placced...
-                                    if (piecePos >= pieceNames.length)
-                                        startButton.setEnabled(true);
-                                    piecePos %= pieceNames.length;
-                                    currentPieceLabel.setText(pieceNames[piecePos] + " Size: " + pieceSizes[piecePos]);
-                                }
-                            }
-                        // Same thing for vertical just little tweaks
-                        } else {
-                            int upSize = (pieceSizes[piecePos] - 1) / 2;
-                            int bottomSize = pieceSizes[piecePos] - upSize - 1;
-
-                            Resources res = v.getResources();
-                            int pos = Integer.parseInt(res.getResourceEntryName(v.getId()).substring(8));
-                            int row = pos / gridSize;
-                            int col = pos % gridSize;
-                            if (row >= upSize && row + bottomSize < gridSize) {
-                                boolean isEmpty = true;
-                                for (int i = row - upSize; i <= row + bottomSize; i++) {
-                                    if (numGrid[i][col] != 0) {
-                                        isEmpty = false;
-                                    }
-                                }
-                                if (isEmpty) {
-                                    for (int i = 0; i < gridSize; i++) {
-                                        for (int j = 0; j < gridSize; j++) {
-                                            if (numGrid[i][j] == pieceNames[piecePos]) {
-                                                numGrid[i][j] = 0;
-                                                grid[i][j].setText("");
-                                            }
-                                        }
-                                    }
-                                    for (int i = row - upSize; i <= row + bottomSize; i++) {
-                                        numGrid[i][col] = pieceNames[piecePos];
-                                        grid[i][col].setText("" + pieceNames[piecePos]);
-                                    }
-                                    piecePos++;
-                                    // If all pieces have been placced...
-                                    if (piecePos >= pieceNames.length)
-                                        startButton.setEnabled(true);
-                                    piecePos %= pieceNames.length;
-                                    currentPieceLabel.setText(pieceNames[piecePos] + " Size: " + pieceSizes[piecePos]);
-                                }
-                            }
-                        }
-                    }
-                });
-
-                // Setting up horizontal and vertical buttons
-                // to change the isHorizontal condition
-                horizontalButton = findViewById(R.id.horizontal_button);
-                horizontalButton.setOnClickListener(new View.OnClickListener() {
-                    @Override
-                    public void onClick(View v) {
-                        isHorizontal = true;
-                    }
-                });
-                verticalButton = findViewById(R.id.vertical_button);
-                verticalButton.setOnClickListener(new View.OnClickListener() {
-                    @Override
-                    public void onClick(View v) {
-                        isHorizontal = false;
-                    }
-                });
-
-                // Test fragment using start button
+        // Test fragment using start button
                 /*startButton = findViewById(R.id.start_button);
                 startButton.setOnClickListener(new View.OnClickListener() {
                     @Override
@@ -313,32 +378,32 @@ public class MainActivity extends AppCompatActivity {
                     }
                 });*/
 
-                // Start the game by going to the game activity
-                startButton = findViewById(R.id.start_button);
-                startButton.setEnabled(false);
-                startButton.setOnClickListener(new View.OnClickListener() {
-                    @Override
-                    public void onClick(View v) {
-                        // Intent to start game
-                        Intent intent = new Intent(getApplicationContext(), BottomActivity.class);
-                        // Put Initial Grid in intent
-                        Gson gson = new Gson();
-                        Grid initialGrid = new Grid(numGrid, pieceNames, pieceSizes);
-                        String gridJson = gson.toJson(initialGrid);
-                        intent.putExtra("bottom_grid", gridJson);
-                        // Put the opponents grid in intent
-                        int[][] opponentNumGrid = new int[gridSize][gridSize];
-                        Grid opponentGrid = new Grid(opponentNumGrid, pieceNames, pieceSizes);
-                        opponentGrid.generateGrid();
-                        gridJson = gson.toJson(opponentGrid);
-                        intent.putExtra("top_grid", gridJson);
-                        // Put initial move
-                        int[] move = {(int)(Math.random() * gridSize), (int)(Math.random() * gridSize)};
-                        intent.putExtra("opponent_move", move);
-                        startActivity(intent);
-                        finish();
-                    }
-                });
+        // Start the game by going to the game activity
+        startButton = findViewById(R.id.start_button);
+        startButton.setEnabled(false);
+        startButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                // Intent to start game
+                Intent intent = new Intent(getApplicationContext(), BottomActivity.class);
+                // Put Initial Grid in intent
+                Gson gson = new Gson();
+                Grid initialGrid = new Grid(numGrid, pieceNames, pieceSizes);
+                String gridJson = gson.toJson(initialGrid);
+                intent.putExtra("bottom_grid", gridJson);
+                // Put the opponents grid in intent
+                int[][] opponentNumGrid = new int[gridSize][gridSize];
+                Grid opponentGrid = new Grid(opponentNumGrid, pieceNames, pieceSizes);
+                opponentGrid.generateGrid();
+                gridJson = gson.toJson(opponentGrid);
+                intent.putExtra("top_grid", gridJson);
+                // Put initial move
+                int[] move = {(int)(Math.random() * gridSize), (int)(Math.random() * gridSize)};
+                intent.putExtra("opponent_move", move);
+                startActivity(intent);
+                finish();
+            }
+        });
 
                 /*
                 // Start settings fragment
@@ -357,43 +422,36 @@ public class MainActivity extends AppCompatActivity {
                     }
                 });*/
 
-                // Start settings acitivty
-                settingsButton = findViewById(R.id.settingsmain_button);
-                settingsButton.setOnClickListener(new View.OnClickListener() {
-                    @Override
-                    public void onClick(View v) {
-                        Intent intent = new Intent(getApplicationContext(), SettingsActivity.class);
-                        startActivity(intent);
-                    }
-                });
-
-                // get background
-                constraintLayout = findViewById(R.id.main_contraintlayout);
-
-                /*// Whenever settings are changed
-                fm.removeOnBackStackChangedListener(new FragmentManager.OnBackStackChangedListener() {
-                    @Override
-                    public void onBackStackChanged() {
-                        // Set the background color
-                        String backgroundColor = sharedPreferences.getString("background_color", "blue");
-                        View root = settingsButton.getRootView();
-                        switch(backgroundColor) {
-                            case "red":
-                                root.setBackgroundColor(getResources().getColor(R.color.holo_red_light));
-                                break;
-                            case "green":
-                                root.setBackgroundColor(getResources().getColor(R.color.holo_green_light));
-                                break;
-                            case "blue":
-                                root.setBackgroundColor(getResources().getColor(R.color.holo_green_light));
-                                break;
-                        }
-                    }
-                });*/
+        // Start settings acitivty
+        settingsButton = findViewById(R.id.settingsmain_button);
+        settingsButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                Intent intent = new Intent(getApplicationContext(), SettingsActivity.class);
+                startActivity(intent);
             }
+        });
 
-
-        }
+        /*// Whenever settings are changed
+        fm.removeOnBackStackChangedListener(new FragmentManager.OnBackStackChangedListener() {
+            @Override
+            public void onBackStackChanged() {
+                // Set the background color
+                String backgroundColor = sharedPreferences.getString("background_color", "blue");
+                View root = settingsButton.getRootView();
+                switch(backgroundColor) {
+                    case "red":
+                        root.setBackgroundColor(getResources().getColor(R.color.holo_red_light));
+                        break;
+                    case "green":
+                        root.setBackgroundColor(getResources().getColor(R.color.holo_green_light));
+                        break;
+                    case "blue":
+                        root.setBackgroundColor(getResources().getColor(R.color.holo_green_light));
+                        break;
+                }
+            }
+        });*/
 
     }
 }

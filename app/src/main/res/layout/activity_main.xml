@@ -54,11 +54,11 @@
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent">
-
+<!--
         <TableRow
             android:id="@+id/board_row0"
             android:layout_width="match_parent"
-            android:layout_height="match_parent">
+            android:layout_height="wrap_content">
 
             <TextView
                 android:id="@+id/textView0"
@@ -285,6 +285,8 @@
                 android:background="#FFFFFF"
                 android:textSize="35sp" />
         </TableRow>
+-->
+
     </TableLayout>
 
     <TextView
