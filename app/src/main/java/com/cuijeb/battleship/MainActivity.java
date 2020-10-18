@@ -203,7 +203,7 @@ public class MainActivity extends AppCompatActivity {
                                 // Check if the tiles around the one you clicked are empty
                                 boolean isEmpty = true;
                                 for (int i = col - leftSize; i <= col + rightSize; i++) {
-                                    if (numGrid[row][i] != 0) {
+                                    if (numGrid[row][i] != 0 && numGrid[row][i] != pieceNames[piecePos]) {
                                         isEmpty = false;
                                         break;
                                     }
@@ -245,7 +245,7 @@ public class MainActivity extends AppCompatActivity {
                             if (row >= upSize && row + bottomSize < gridSize) {
                                 boolean isEmpty = true;
                                 for (int i = row - upSize; i <= row + bottomSize; i++) {
-                                    if (numGrid[i][col] != 0) {
+                                    if (numGrid[i][col] != 0 && numGrid[i][col] != pieceNames[piecePos]) {
                                         isEmpty = false;
                                         break;
                                     }
