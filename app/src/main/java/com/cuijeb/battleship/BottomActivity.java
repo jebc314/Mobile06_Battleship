@@ -1,16 +1,22 @@
 
 package com.cuijeb.battleship;
 
-import androidx.appcompat.app.AppCompatActivity;
-
+import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.graphics.Color;
 import android.os.Bundle;
 import android.os.CountDownTimer;
+import android.util.TypedValue;
 import android.view.View;
 import android.widget.Button;
+import android.widget.TableLayout;
+import android.widget.TableRow;
 import android.widget.TextView;
 import android.widget.Toast;
+
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.constraintlayout.widget.ConstraintLayout;
 
 import com.google.gson.Gson;
 
@@ -18,7 +24,7 @@ import com.google.gson.Gson;
 public class BottomActivity extends AppCompatActivity {
 
     // The grid's textviews
-    private TextView[][] grid = new TextView[5][5];
+    private TextView[][] grid;
 
     // The Intent from Other (or Setup) Activity
     private Intent intent;
@@ -37,8 +43,19 @@ public class BottomActivity extends AppCompatActivity {
     // Enemy attack
     private int[] enemysAttack;
 
+    // Shared preferences
+    private SharedPreferences sharedPreferences;
+
+    // Background
+    private ConstraintLayout constraintLayout;
+
     // Finish turn button
     private Button finishButton;
+
+    // Table board
+    private TableLayout tableLayout;
+    // Table rows
+    private TableRow[] tableRows;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -52,24 +69,62 @@ public class BottomActivity extends AppCompatActivity {
         Gson gson = new Gson();
         String json = intent.getStringExtra("bottom_grid");
         bottom_grid = gson.fromJson(json, Grid.class);
-        // Getting num grid from grid object
-        // numGrid = bottom_grid.grid;
-        // Getting the piece names from grid object
-        // pieceNames = bottom_grid.pieceNames;
-        // Getting the piece sizes from grid object
-        // pieceSizes = bottom_grid.pieceSizes;
 
-        for (int row = 0; row < 5; row++) {
-            for (int column = 0; column < 5; column++) {
-                // Get's ID of textviews and puts reference in grid textview array
-                String id = "bottom_textView" + (row * 5 + column);
-                int resID = getResources().getIdentifier(id, "id", getPackageName());
-                grid[row][column] = findViewById(resID);
+
+        // Initializing the top grid
+        json = intent.getStringExtra("top_grid");
+        top_grid = gson.fromJson(json, Grid.class);
+
+        // Getting enemy attack
+        enemysAttack = intent.getIntArrayExtra("opponent_move");
+
+        // Make the grid display
+        grid = new TextView[bottom_grid.grid.length][bottom_grid.grid.length];
+        // Get table layout
+        tableLayout = findViewById(R.id.bottom_board_layout);
+        // Reset table layout
+        tableLayout.removeAllViews();
+
+        // Getting the table rows
+        tableRows = new TableRow[grid.length];
+        TableLayout.LayoutParams taLayout = new TableLayout.LayoutParams(TableLayout.LayoutParams.MATCH_PARENT, TableLayout.LayoutParams.WRAP_CONTENT);
+        for (int i = 0; i < grid.length; i++)
+        {
+            TableRow tr = new TableRow(this);
+            tr.setLayoutParams(taLayout);
+            tableLayout.addView(tr);
+            tableRows[i] = tr;
+        }
+        // Calculate "table width" in pixels
+        float tableWidth = 375 * this.getResources().getDisplayMetrics().density;
+        //Log.d("JEB", ""+ tableWidth);
+        // Margins in pixels
+        float textviewMargin = this.getResources().getDisplayMetrics().density;
+
+        // Table Row Layout params
+        int textviewWidth = (int)(tableWidth / grid.length - 2 * textviewMargin);
+        TableRow.LayoutParams tr = new TableRow.LayoutParams(textviewWidth, textviewWidth);
+        tr.setMargins((int)textviewMargin,(int)textviewMargin,(int)textviewMargin,(int)textviewMargin);
+
+        // getting grid pieces
+        for (int row = 0; row < grid.length; row++) {
+            for (int column = 0; column < grid.length; column++) {
+                // Make textview
+                TextView tv = new TextView(this);
+                tv.setLayoutParams(tr);
+                tv.setBackgroundColor(Color.WHITE);
+                int textSize = 250 / grid.length;
+                tv.setTextSize(TypedValue.COMPLEX_UNIT_SP, textSize);
+
+                // Add textview to table row and grid
+                tableRows[row].addView(tv);
+                grid[row][column] = tv;
+
                 // Set grid's value
                 if (bottom_grid.grid[row][column] != 0) {
                     grid[row][column].setText("" + bottom_grid.grid[row][column]);
                 }
-                // Set grid's background color for miss or hit by opponent
+
                 if (bottom_grid.gridHM[row][column] != 0) {
                     if (bottom_grid.gridHM[row][column] == 1) {
                         grid[row][column].setBackgroundColor(Color.GRAY);
@@ -79,13 +134,6 @@ public class BottomActivity extends AppCompatActivity {
                 }
             }
         }
-
-        // Initializing the top grid
-        json = intent.getStringExtra("top_grid");
-        top_grid = gson.fromJson(json, Grid.class);
-
-        // Getting enemy attack
-        enemysAttack = intent.getIntArrayExtra("opponent_move");
 
         // Finish turn button
         finishButton = findViewById(R.id.bottom_next_button);
@@ -108,6 +156,50 @@ public class BottomActivity extends AppCompatActivity {
         });
         finishButton.setEnabled(false);
 
+        // get sharedpreferences
+        sharedPreferences = getSharedPreferences("Settings", Context.MODE_PRIVATE);
+
+        // Constraint layout
+        constraintLayout = findViewById(R.id.bottom_constraintlayout);
+
+        // Set the background color
+        String backgroundColor = sharedPreferences.getString("background_color", "blue");
+        // View root = settingsButton.getRootView();
+        switch(backgroundColor) {
+            case "red":
+                constraintLayout.setBackgroundColor(getResources().getColor(R.color.holo_red_light));
+                break;
+            case "green":
+                constraintLayout.setBackgroundColor(getResources().getColor(R.color.holo_green_light));
+                break;
+            case "blue":
+                constraintLayout.setBackgroundColor(getResources().getColor(R.color.holo_blue_light));
+                break;
+        }
+        // Set Text Color
+        String textColor = sharedPreferences.getString("text_color", "black");
+        TextView labelTextView = findViewById(R.id.bottom_board_title);
+        switch (textColor) {
+            case "black":
+                labelTextView.setTextColor(Color.BLACK);
+                finishButton.setTextColor(Color.BLACK);
+                for (TextView[] r: grid)
+                    for (TextView c: r)
+                        c.setTextColor(Color.BLACK);
+                break;
+            case "white":
+                labelTextView.setTextColor(Color.WHITE);
+                finishButton.setTextColor(Color.WHITE);
+                break;
+            case "blue":
+                labelTextView.setTextColor(Color.BLUE);
+                finishButton.setTextColor(Color.BLUE);
+                for (TextView[] r: grid)
+                    for (TextView c: r)
+                        c.setTextColor(Color.BLUE);
+                break;
+        }
+
         // Timer to wait before showing enemy attack
         new CountDownTimer(1500, 1000) {
             public void onFinish() {
@@ -118,15 +210,11 @@ public class BottomActivity extends AppCompatActivity {
                         top_grid.attackEnemy(bottom_grid, enemysAttack[0], enemysAttack[1]);
 
                 // Display attack
-                for (int row = 0; row < 5; row++) {
-                    for (int column = 0; column < 5; column++) {
-                        if (bottom_grid.gridHM[row][column] != 0) {
-                            if (bottom_grid.gridHM[row][column] == 1) {
-                                grid[row][column].setBackgroundColor(Color.GRAY);
-                            } else {
-                                grid[row][column].setBackgroundColor(Color.RED);
-                            }
-                        }
+                if (bottom_grid.gridHM[enemysAttack[0]][enemysAttack[1]] != 0) {
+                    if (bottom_grid.gridHM[enemysAttack[0]][enemysAttack[1]] == 1) {
+                        grid[enemysAttack[0]][enemysAttack[1]].setBackgroundColor(Color.GRAY);
+                    } else {
+                        grid[enemysAttack[0]][enemysAttack[1]].setBackgroundColor(Color.RED);
                     }
                 }
 

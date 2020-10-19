@@ -5,7 +5,7 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     tools:context=".SettingsActivity">
-
+<!--
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="match_parent"
@@ -38,4 +38,9 @@
 
         </fragment>
     </LinearLayout>
+    -->
+    <androidx.viewpager.widget.ViewPager
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:id="@+id/pager" />
 </androidx.constraintlayout.widget.ConstraintLayout>
